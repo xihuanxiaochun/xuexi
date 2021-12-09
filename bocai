@@ -1,0 +1,97 @@
+pragma solidity ^0.6.1;
+
+contract bocai_demo{
+    mapping(address =>uint256) balance;
+    struct User{
+        address payable addr;
+        uint amount;
+    }
+    
+    User[] bigs;//下大
+    User[] smalls;//下小
+    address admin;
+    bool isFinshed;
+    uint256 outtimes;
+    uint256 bigTotalAmount;
+    uint256 smallTotalAmount;
+    uint256 result;
+
+    constructor()public{
+        admin = msg.sender;
+        isFinshed = false;
+        outtimes = now + 60;
+        bigTotalAmount = 0;
+        smallTotalAmount = 0;
+    }
+
+    //下注
+    function bet(uint flag)public payable{
+        require(msg.value>0,"msg.value must >0");
+        require(!isFinshed,"game must no finshed");
+        require(now<=outtimes,"time not out");
+
+        if(flag==1){
+            User memory user = User(msg.sender,msg.value);
+            bigs.push(user);
+            bigTotalAmount += msg.value;
+            user.amount += msg.value;
+            balance[msg.sender] +=msg.value;
+        }else{
+            User memory user = User(msg.sender,msg.value);
+            smalls.push(user);
+            smallTotalAmount += msg.value;
+            user.amount += msg.value;
+            balance[msg.sender] +=msg.value;
+        }
+    }
+
+    //开奖
+
+    function open() public payable{
+        //1.条件判断，判断是否能够开奖
+        require(!isFinshed,"only open once");
+        require(now>=outtimes,"time must ok ");
+
+        //计算是大还是小
+        isFinshed = true;
+        uint256 random = uint256(keccak256(abi.encode(msg.sender,now,admin,outtimes)))%18;
+        result = random;
+
+        //派奖
+        User memory user;
+        if (random<1){
+            //小
+            for(uint256 i = 0;i < smalls.length;i++){
+                user = smalls[i];
+                uint amount = bigTotalAmount * user.amount/smallTotalAmount * 90 /100 + user.amount;
+                user.addr.transfer(amount);
+            }
+
+        }else{
+            //big
+            for(uint256 i = 0;i < bigs.length;i++){
+                user = bigs[i];
+                uint amount = smallTotalAmount * user.amount/bigTotalAmount * 90/100 + user.amount;
+                user.addr.transfer(amount);
+            }
+        }
+        smallTotalAmount -= smallTotalAmount ;
+        bigTotalAmount -= bigTotalAmount;
+        balance[msg.sender] = 0;
+        
+    }
+
+    function getBlance() public view returns(uint256,uint256,uint256){
+         return (bigTotalAmount,smallTotalAmount,address(this).balance);   
+        }
+    
+
+    function getResult()public view returns(uint256){
+        return result;
+
+    }
+    function chekMoney()public view returns(uint256){
+        return balance[msg.sender];
+    }
+
+}
